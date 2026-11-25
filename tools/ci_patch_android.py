@@ -44,3 +44,11 @@ if "usesCleartextTraffic" not in m:
 m = re.sub(r'android:label="[^"]*"', 'android:label="CC Remote"', m, count=1)
 manifest.write_text(m)
 print("AndroidManifest.xml ajustado")
+
+# Alguns plugins (ex.: tflite_flutter) compilam Java para 1.8 e Kotlin para 17;
+# o Gradle atual trata essa diferença como erro. Passa a ser só aviso.
+props = pathlib.Path("android/gradle.properties")
+p = props.read_text() if props.exists() else ""
+if "kotlin.jvm.target.validation.mode" not in p:
+    props.write_text(p.rstrip("\n") + "\nkotlin.jvm.target.validation.mode=warning\n")
+    print("gradle.properties ajustado")
