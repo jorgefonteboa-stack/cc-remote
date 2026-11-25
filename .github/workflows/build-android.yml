@@ -31,6 +31,9 @@ jobs:
           rm -rf test   # teste de exemplo gerado pelo flutter create (não se aplica a esta app)
           python3 tools/ci_patch_android.py
           flutter pub get
+          # Plugins antigos usam proguard-android.txt, recusado pelo Android Gradle Plugin atual
+          grep -rl "proguard-android.txt" ~/.pub-cache/hosted/pub.dev/*/android/ 2>/dev/null \
+            | xargs -r sed -i "s/proguard-android.txt/proguard-android-optimize.txt/g"
 
       - name: Análise do código
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
