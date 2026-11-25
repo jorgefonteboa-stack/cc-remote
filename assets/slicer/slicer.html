@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- Motor Kiri:Moto (MIT). Para modo offline, substituir por uma cópia local. -->
+<script src="https://grid.space/code/engine.js"></script>
+</head>
+<body>
+<script>
+// Perfil da Elegoo Centauri Carbon (CC1): volume 256 x 256 x 256 mm, bico 0.4.
+// O G-code inicial é genérico — afinar comparando com o perfil CC1 do ElegooSlicer.
+const CC1_DEVICE = {
+  bedWidth: 256,
+  bedDepth: 256,
+  maxHeight: 256,
+  originCenter: false,
+  extruders: [{ extNozzle: 0.4, extFilament: 1.75, extOffsetX: 0, extOffsetY: 0 }],
+  gcodePre: [
+    "; CC Remote — Kiri:Moto",
+    "M140 S{bed_temp}",
+    "M104 S{temp}",
+    "G90",
+    "M83",
+    "G28",
+    "M190 S{bed_temp}",
+    "M109 S{temp}",
+    "G1 Z0.3 F3000",
+    "G1 X10 Y10 F6000",
+    "G1 X120 E12 F1500",
+    "G1 Y10.4",
+    "G1 X10 E12 F1500",
+    "G92 E0"
+  ],
+  gcodePost: [
+    "M104 S0",
+    "M140 S0",
+    "G91",
+    "G1 Z5 E-2 F1500",
+    "G90",
+    "G1 X128 Y250 F6000",
+    "M106 S0",
+    "M84"
+  ]
+};
+
+function send(name, ...args) {
+  if (window.flutter_inappwebview) window.flutter_inappwebview.callHandler(name, ...args);
+}
+
+window.sliceModel = async function (b64, s) {
+  const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const engine = kiri.newEngine();
+  engine.setListener(msg => {
+    // As mensagens de progresso do Kiri variam por versão; reencaminhar o que houver.
+    if (msg && typeof msg === 'object') {
+      const p = msg.progress ?? msg.update ?? null;
+      if (typeof p === 'number') send('progress', p, msg.updateStatus || msg.stage || '');
+    }
+  });
+  await engine.parse(bin.buffer);
+  engine.setMode('FDM');
+  // Com CANVAS: escolher o slot com T<n> depois de aquecer e antes da purga.
+  // (Os ficheiros do ElegooSlicer selecionam ferramentas com T<n>; confirmar
+  // na impressora real se a CC1 aceita a troca neste ponto do G-code.)
+  const device = JSON.parse(JSON.stringify(CC1_DEVICE));
+  if (Number.isInteger(s.canvasSlot)) {
+    const i = device.gcodePre.findIndex(l => l.startsWith('M109'));
+    device.gcodePre.splice(i + 1, 0, `T${s.canvasSlot} ; slot CANVAS ${s.canvasSlot + 1}`);
+  }
+  engine.setDevice(device);
+  engine.setProcess({
+    sliceHeight: s.layerHeight,
+    firstSliceHeight: Math.max(0.2, s.layerHeight),
+    sliceShells: s.walls,
+    sliceFillSparse: s.infill,
+    sliceFillType: 'gyroid',
+    sliceTopLayers: 4,
+    sliceBottomLayers: 3,
+    sliceSupportEnable: !!s.supports,
+    outputTemp: s.nozzleTemp,
+    outputBedTemp: s.bedTemp,
+    firstLayerNozzleTemp: s.nozzleTemp,
+    firstLayerBedTemp: s.bedTemp,
+    outputFeedrate: 150,
+    outputFinishrate: 100,
+    firstLayerRate: 50,
+    outputSeekrate: 250,
+    outputFanMax: 255,
+    outputRetractDist: 0.8,
+    outputRetractSpeed: 40,
+    outputBrimCount: 0,
+    outputSkirtCount: 1
+  });
+  send('progress', 0.1, 'slice');
+  await engine.slice();
+  send('progress', 0.6, 'prepare');
+  await engine.prepare();
+  send('progress', 0.9, 'export');
+  const gcode = await engine.export();
+  send('progress', 1, 'done');
+  return { gcode: typeof gcode === 'string' ? gcode : String(gcode) };
+};
+
+window.addEventListener('load', () => {
+  if (window.kiri && kiri.newEngine) send('ready');
+});
+</script>
+</body>
+</html>

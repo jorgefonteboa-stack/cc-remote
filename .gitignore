@@ -1,0 +1,25 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+.vscode/
+.DS_Store
+
+# Pastas geradas pelo setup.sh (flutter create)
+/android/
+/ios/
+/test/
+/analysis_options.yaml
+/.metadata
+/pubspec.lock
+
+# Treino do modelo
+runs/
+*.pt
+__pycache__/

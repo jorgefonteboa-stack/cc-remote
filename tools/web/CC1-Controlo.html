@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CC1 Controlo</title>
+<style>
+  :root { --bg:#0f1412; --card:#18201d; --line:#2a3530; --fg:#e8efec; --mut:#93a39c; --acc:#3fb58f; --red:#e5534b; --amb:#e0a53a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+  header { display:flex; gap:8px; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg); z-index:2; flex-wrap:wrap; }
+  header h1 { font-size:17px; margin:0 12px 0 0; }
+  input, select { background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font:inherit; }
+  button { background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font:inherit; cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--acc); }
+  button:disabled { opacity:.4; cursor:default; }
+  button.pri { background:var(--acc); border-color:var(--acc); color:#06120d; font-weight:600; }
+  button.red { background:var(--red); border-color:var(--red); color:#fff; font-weight:600; }
+  .dot { width:10px; height:10px; border-radius:50%; background:var(--red); display:inline-block; }
+  .dot.on { background:var(--acc); }
+  main { display:grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1fr); gap:16px; padding:16px; max-width:1300px; margin:auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:16px; }
+  .card h2 { font-size:14px; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); margin:0 0 10px; }
+  #cam { width:100%; aspect-ratio:16/9; background:#000; border-radius:8px; object-fit:contain; display:block; }
+  .camwrap { position:relative; }
+  .camwrap .msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--mut); }
+  .temps { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .temp { background:var(--bg); border-radius:8px; padding:10px; text-align:center; }
+  .temp b { font-size:22px; display:block; }
+  .temp small { color:var(--mut); }
+  .bar { height:10px; background:var(--bg); border-radius:5px; overflow:hidden; margin:8px 0 4px; }
+  .bar > div { height:100%; width:0; background:var(--acc); transition:width .4s; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .slots { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .slot { background:var(--bg); border:2px solid transparent; border-radius:10px; padding:10px 6px; text-align:center; }
+  .slot.active { border-color:var(--acc); }
+  .slot .sw { width:34px; height:34px; border-radius:50%; margin:6px auto; border:1px solid #0005; }
+  .slot small { color:var(--mut); display:block; }
+  ul.files { list-style:none; padding:0; margin:8px 0 0; max-height:220px; overflow:auto; }
+  ul.files li { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); word-break:break-all; }
+  #log { background:#000; color:#9fd8c2; font:12px/1.35 ui-monospace,Menlo,Consolas,monospace; height:220px; overflow:auto; padding:8px; border-radius:8px; white-space:pre-wrap; word-break:break-all; }
+  .mut { color:var(--mut); }
+  .warn { color:var(--amb); }
+</style>
+</head>
+<body>
+<header>
+  <h1>CC1 Controlo</h1>
+  <input id="ip" placeholder="IP da impressora, ex. 192.168.1.50" size="28">
+  <button class="pri" id="btnConnect">Ligar</button>
+  <span class="dot" id="dot"></span><span id="connTxt" class="mut">Desligado</span>
+</header>
+
+<main>
+  <section>
+    <div class="card">
+      <h2>Câmara</h2>
+      <div class="camwrap">
+        <img id="cam" alt="">
+        <div class="msg" id="camMsg">Liga-te à impressora para ver a câmara</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Estado</h2>
+      <div class="row" style="justify-content:space-between">
+        <div><b id="stLabel" style="font-size:18px">—</b><div id="stFile" class="mut"></div></div>
+        <div id="stTime" class="mut"></div>
+      </div>
+      <div class="bar"><div id="stBar"></div></div>
+      <div id="stLine" class="mut"></div>
+      <div class="temps" style="margin-top:12px">
+        <div class="temp"><b id="tN">—</b><small id="tNt">Bico</small></div>
+        <div class="temp"><b id="tB">—</b><small id="tBt">Mesa</small></div>
+        <div class="temp"><b id="tC">—</b><small>Câmara</small></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Controlos</h2>
+      <div class="row">
+        <button id="bPause" disabled>⏸ Pausa</button>
+        <button id="bResume" disabled>▶ Retomar</button>
+        <button id="bStop" class="red" disabled>■ Stop</button>
+        <button id="bLight" disabled>💡 Luz</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h2>Filamentos no CANVAS</h2>
+      <div id="slots" class="slots"><div class="mut" style="grid-column:1/-1">—</div></div>
+      <div class="row" style="margin-top:10px"><button id="bCanvas" disabled>⟳ Ler da impressora</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Enviar e imprimir G-code</h2>
+      <p class="mut" style="margin-top:0">Escolhe um .gcode feito no ElegooSlicer ou no OrcaSlicer.</p>
+      <div class="row">
+        <input type="file" id="gfile" accept=".gcode,.gco,.g">
+        <button class="pri" id="bUpload" disabled>Enviar e imprimir</button>
+      </div>
+      <div class="bar" id="upBarWrap" style="display:none"><div id="upBar"></div></div>
+      <div id="upTxt" class="mut"></div>
+    </div>
+
+    <div class="card">
+      <h2>Ficheiros na impressora</h2>
+      <div class="row"><button id="bFiles" disabled>⟳ Atualizar lista</button></div>
+      <ul class="files" id="files"></ul>
+    </div>
+
+    <div class="card">
+      <h2>Registo técnico</h2>
+      <div id="log"></div>
+      <div class="row" style="margin-top:8px">
+        <button id="bCopy">Copiar registo</button>
+        <span class="mut">Se algo falhar, copia isto e cola-o na conversa com o Claude.</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  let ws = null, ip = '', mainboardId = '', status = {}, light = false, pingTimer = null, retryTimer = null, manualClose = false;
+  const pending = new Map();
+  const logLines = [];
+
+  function log(msg) {
+    const t = new Date().toLocaleTimeString();
+    logLines.push(`[${t}] ${msg}`);
+    if (logLines.length > 400) logLines.shift();
+    const el = $('log');
+    el.textContent = logLines.join('\n');
+    el.scrollTop = el.scrollHeight;
+  }
+  const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()).replace(/-/g, '');
+
+  // ---------- Ligação SDCP ----------
+  function connect() {
+    ip = $('ip').value.trim();
+    if (!ip) return alert('Escreve o IP da impressora (aparece no ecrã dela, em Definições → Rede).');
+    localStorage.setItem('cc1_ip', ip);
+    clearTimeout(retryTimer);
+    if (ws) { manualClose = true; ws.close(); }
+    manualClose = false;
+    log(`A ligar a ws://${ip}:3030/websocket …`);
+    setConn(false, 'A ligar…');
+    try { ws = new WebSocket(`ws://${ip}:3030/websocket`); }
+    catch (e) { log('Erro: ' + e); return; }
+    ws.onopen = () => {
+      setConn(true, 'Ligado');
+      log('Ligado.');
+      pingTimer = setInterval(() => ws && ws.readyState === 1 && ws.send('ping'), 10000);
+      send(1); send(0);
+      startCamera();
+      setTimeout(readCanvas, 800);
+      setTimeout(listFiles, 1500);
+    };
+    ws.onclose = () => {
+      clearInterval(pingTimer);
+      if (manualClose) return;
+      setConn(false, 'A religar…');
+      log('Ligação perdida — a religar em 5 s…');
+      retryTimer = setTimeout(connect, 5000);
+    };
+    ws.onerror = () => log('Erro na ligação. Confirma o IP e que estás na mesma rede Wi-Fi.');
+    ws.onmessage = ev => onMessage(ev.data);
+  }
+
+  function setConn(on, txt) {
+    $('dot').classList.toggle('on', on);
+    $('connTxt').textContent = txt;
+    for (const b of ['bPause','bResume','bStop','bLight','bCanvas','bFiles','bUpload']) $(b).disabled = !on;
+  }
+
+  function send(cmd, data = {}) {
+    if (!ws || ws.readyState !== 1) return Promise.reject('Sem ligação');
+    const RequestID = uid();
+    const msg = {
+      Id: uid(),
+      Data: { Cmd: cmd, Data: data, RequestID, MainboardID: mainboardId, TimeStamp: Math.floor(Date.now()/1000), From: 1 },
+      Topic: `sdcp/request/${mainboardId}`
+    };
+    ws.send(JSON.stringify(msg));
+    if (cmd !== 0) log(`→ Cmd ${cmd} ${JSON.stringify(data)}`);
+    return new Promise((res, rej) => {
+      pending.set(RequestID, res);
+      setTimeout(() => { if (pending.delete(RequestID)) rej(`Sem resposta ao Cmd ${cmd}`); }, 10000);
+    });
+  }
+
+  function onMessage(raw) {
+    if (typeof raw !== 'string' || raw === 'pong') return;
+    let j; try { j = JSON.parse(raw); } catch { return; }
+    const topic = j.Topic || '';
+    const m = topic.match(/^sdcp\/\w+\/(.+)$/);
+    if (m && !mainboardId) { mainboardId = m[1]; log('MainboardID: ' + mainboardId); }
+
+    if (raw.includes('canvas_list')) { const c = findKey(j, 'canvas_list'); if (c) renderCanvas(c); }
+
+    if (topic.startsWith('sdcp/status') && j.Status) { status = j.Status; renderStatus(); }
+    else if (topic.startsWith('sdcp/attributes') && j.Attributes) {
+      const a = j.Attributes; log(`Impressora: ${a.Name || a.MachineName || ''} · firmware ${a.FirmwareVersion || '?'}`);
+    } else if (topic.startsWith('sdcp/response') && j.Data) {
+      const d = j.Data, res = pending.get(d.RequestID);
+      const ack = d.Data && d.Data.Ack;
+      if (d.Cmd !== 0) log(`← Cmd ${d.Cmd} ${ack === 0 ? 'OK' : 'Ack=' + ack} ${shorten(JSON.stringify(d.Data))}`);
+      if (res) { pending.delete(d.RequestID); res(d.Data || {}); }
+    } else if (!topic.startsWith('sdcp/status')) {
+      log('← ' + shorten(raw));
+    }
+  }
+  const shorten = s => s && s.length > 300 ? s.slice(0, 300) + '…' : s;
+
+  function findKey(o, key, depth = 0) {
+    if (!o || typeof o !== 'object' || depth > 6) return null;
+    if (key in o) return o;
+    for (const v of Object.values(o)) { const r = findKey(v, key, depth + 1); if (r) return r; }
+    return null;
+  }
+
+  // ---------- Estado ----------
+  const LABELS = {0:'Inativa',1:'A fazer homing',5:'A pausar',6:'Em pausa',7:'A parar',8:'Parada',9:'Concluída',10:'A verificar ficheiro',13:'A imprimir',16:'A aquecer',20:'A nivelar'};
+  function renderStatus() {
+    const s = status, p = s.PrintInfo || {};
+    $('stLabel').textContent = LABELS[p.Status] ?? `Estado ${p.Status ?? '?'}`;
+    $('stFile').textContent = p.Filename || '';
+    const prog = Number(p.Progress) || 0;
+    $('stBar').style.width = Math.min(100, prog) + '%';
+    $('stLine').textContent = p.TotalLayer ? `${prog.toFixed(0)}% · camada ${p.CurrentLayer}/${p.TotalLayer}` : '';
+    const rem = (p.TotalTicks || 0) - (p.CurrentTicks || 0);
+    $('stTime').textContent = rem > 0 && p.Status === 13 ? `faltam ~${fmt(rem)}` : '';
+    const t = (v) => v == null ? '—' : Math.round(v) + '°';
+    $('tN').textContent = t(s.TempOfNozzle); $('tNt').textContent = s.TempTargetNozzle ? `Bico → ${Math.round(s.TempTargetNozzle)}°` : 'Bico';
+    $('tB').textContent = t(s.TempOfHotbed); $('tBt').textContent = s.TempTargetHotbed ? `Mesa → ${Math.round(s.TempTargetHotbed)}°` : 'Mesa';
+    $('tC').textContent = t(s.TempOfBox);
+    if (s.LightStatus) { light = !!s.LightStatus.SecondLight; $('bLight').textContent = light ? '💡 Luz (ligada)' : '💡 Luz (desligada)'; }
+  }
+  function fmt(sec) { const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60); return h ? `${h}h ${m}min` : `${m}min`; }
+
+  // ---------- Câmara ----------
+  async function startCamera() {
+    $('camMsg').textContent = 'A ligar a câmara…';
+    let url = `http://${ip}:3031/video`;
+    try {
+      const r = await send(386, { Enable: 1 });
+      if (r && r.VideoUrl) url = r.VideoUrl.startsWith('http') ? r.VideoUrl : 'http://' + r.VideoUrl;
+    } catch (e) { log('Câmara: ' + e + ' — a tentar o endereço padrão.'); }
+    const img = $('cam');
+    img.onload = () => { $('camMsg').style.display = 'none'; };
+    img.onerror = () => { $('camMsg').style.display = 'flex'; $('camMsg').textContent = 'Câmara indisponível (a CC1 só aceita 1–2 espectadores; fecha outras janelas da câmara).'; };
+    img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+    log('Câmara: ' + url);
+  }
+
+  // ---------- Controlos ----------
+  const act = (cmd, data, ok) => send(cmd, data).then(() => log('✓ ' + ok)).catch(e => log('✗ ' + e));
+  $('bPause').onclick = () => act(129, {}, 'Pausa');
+  $('bResume').onclick = () => act(131, {}, 'Retomar');
+  $('bStop').onclick = () => { if (confirm('Parar a impressão? Não pode ser retomada.')) act(130, {}, 'Stop'); };
+  $('bLight').onclick = () => act(403, { LightStatus: { SecondLight: !light, RgbLight: [0,0,0] } }, light ? 'Luz desligada' : 'Luz ligada')
+    .then(() => setTimeout(() => send(0).catch(()=>{}), 500));
+
+  // ---------- CANVAS ----------
+  async function readCanvas() {
+    $('slots').innerHTML = '<div class="mut" style="grid-column:1/-1">A ler…</div>';
+    try {
+      const r = await send(324);
+      const c = findKey(r, 'canvas_list');
+      if (c) renderCanvas(c);
+      else setTimeout(() => { if ($('slots').textContent.includes('A ler')) $('slots').innerHTML = '<div class="warn" style="grid-column:1/-1">A impressora não enviou dados do CANVAS. Confirma o firmware (1.4.44+).</div>'; }, 5000);
+    } catch (e) {
+      $('slots').innerHTML = `<div class="warn" style="grid-column:1/-1">${e}</div>`;
+    }
+  }
+  function renderCanvas(c) {
+    const trays = [];
+    for (const u of c.canvas_list || []) {
+      if (u.connected === 0) continue;
+      for (const t of u.tray_list || []) trays.push({ ...t, cid: u.canvas_id || 0 });
+    }
+    if (!trays.length) { $('slots').innerHTML = '<div class="mut" style="grid-column:1/-1">Nenhum CANVAS ligado.</div>'; return; }
+    trays.sort((a,b) => (a.cid*4+a.tray_id) - (b.cid*4+b.tray_id));
+    $('slots').innerHTML = trays.map(t => {
+      const empty = !t.filament_type;
+      const active = t.cid === c.active_canvas_id && t.tray_id === c.active_tray_id;
+      const lbl = String.fromCharCode(65 + t.cid) + (t.tray_id + 1);
+      return `<div class="slot ${active ? 'active' : ''}">
+        <small>${lbl}${active ? ' · ativo' : ''}</small>
+        <div class="sw" style="background:${empty ? 'transparent' : (t.filament_color || '#888')}"></div>
+        <b>${empty ? 'Vazio' : esc(t.filament_type)}</b>
+        <small>${empty ? '' : esc(t.filament_name || t.brand || '')}</small>
+        <small>${t.min_nozzle_temp ? `${t.min_nozzle_temp}–${t.max_nozzle_temp}°` : ''}</small>
+      </div>`;
+    }).join('');
+    log(`CANVAS: ${trays.map(t => t.filament_type || 'vazio').join(', ')}`);
+  }
+  const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  $('bCanvas').onclick = readCanvas;
+
+  // ---------- Ficheiros ----------
+  async function listFiles() {
+    try {
+      const r = await send(258, { Url: '/local' });
+      const list = (r.FileList || []).filter(f => f.type === 1 || /\.gcode$/i.test(f.name || ''));
+      $('files').innerHTML = list.length ? list.map(f => {
+        const n = (f.name || '').split('/').pop();
+        return `<li><span>${esc(n)}</span><button data-f="${esc(n)}">▶ Imprimir</button></li>`;
+      }).join('') : '<li class="mut">Sem ficheiros .gcode</li>';
+      $('files').querySelectorAll('button[data-f]').forEach(b => b.onclick = () => startPrint(b.dataset.f));
+    } catch (e) { log('Lista de ficheiros: ' + e); }
+  }
+  $('bFiles').onclick = listFiles;
+
+  function startPrint(name) {
+    if (!confirm(`Imprimir "${name}"?\nConfirma que a mesa está limpa.`)) return;
+    act(128, { Filename: name, StartLayer: 0 }, 'Impressão iniciada: ' + name);
+  }
+
+  // ---------- Upload ----------
+  $('bUpload').onclick = async () => {
+    const f = $('gfile').files[0];
+    if (!f) return alert('Escolhe primeiro um ficheiro .gcode');
+    const name = f.name.replace(/[^A-Za-z0-9_.\-]/g, '_');
+    const buf = new Uint8Array(await f.arrayBuffer());
+    $('upBarWrap').style.display = 'block';
+    $('upTxt').textContent = 'A calcular verificação…';
+    const md5hex = md5(buf);
+    const id = uid(), CHUNK = 1024 * 1024;
+    log(`Upload ${name} (${(buf.length/1048576).toFixed(1)} MB, md5 ${md5hex})`);
+    try {
+      for (let off = 0; off < buf.length; off += CHUNK) {
+        const end = Math.min(off + CHUNK, buf.length);
+        const fd = new FormData();
+        fd.append('S-File-MD5', md5hex); fd.append('Check', '1'); fd.append('Offset', String(off));
+        fd.append('Uuid', id); fd.append('TotalSize', String(buf.length));
+        fd.append('File', new Blob([buf.subarray(off, end)]), name);
+        // A impressora não envia cabeçalhos CORS: envio "às cegas" e confirmo pela lista de ficheiros.
+        await fetch(`http://${ip}:3030/uploadFile/upload`, { method: 'POST', body: fd, mode: 'no-cors' });
+        const pct = Math.round(end / buf.length * 100);
+        $('upBar').style.width = pct + '%'; $('upTxt').textContent = `A enviar… ${pct}%`;
+      }
+      $('upTxt').textContent = 'Enviado. A confirmar…';
+      await new Promise(r => setTimeout(r, 1500));
+      await listFiles();
+      if ($('files').textContent.includes(name)) {
+        $('upTxt').textContent = 'Ficheiro na impressora ✓';
+        startPrint(name);
+      } else {
+        $('upTxt').innerHTML = '<span class="warn">O ficheiro não aparece na lista. Vê o registo técnico.</span>';
+      }
+    } catch (e) {
+      $('upTxt').innerHTML = `<span class="warn">Falhou: ${e}</span>`; log('Upload falhou: ' + e);
+    }
+  };
+
+  // MD5 compacto (para a verificação do upload)
+  function md5(bytes) {
+    const K = new Int32Array(64), S = [7,12,17,22,5,9,14,20,4,11,16,23,6,10,15,21];
+    for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 2 ** 32) | 0;
+    const len = bytes.length, nBlocks = ((len + 8) >>> 6) + 1, W = new Int32Array(nBlocks * 16);
+    for (let i = 0; i < len; i++) W[i >> 2] |= bytes[i] << ((i % 4) * 8);
+    W[len >> 2] |= 0x80 << ((len % 4) * 8);
+    W[nBlocks * 16 - 2] = (len * 8) | 0; W[nBlocks * 16 - 1] = Math.floor(len / 0x20000000);
+    let a0 = 0x67452301, b0 = 0xefcdab89 | 0, c0 = 0x98badcfe | 0, d0 = 0x10325476;
+    for (let blk = 0; blk < W.length; blk += 16) {
+      let A = a0, B = b0, C = c0, D = d0;
+      for (let i = 0; i < 64; i++) {
+        let F, g;
+        if (i < 16) { F = (B & C) | (~B & D); g = i; }
+        else if (i < 32) { F = (D & B) | (~D & C); g = (5 * i + 1) % 16; }
+        else if (i < 48) { F = B ^ C ^ D; g = (3 * i + 5) % 16; }
+        else { F = C ^ (B | ~D); g = (7 * i) % 16; }
+        const s = S[(i >> 4) * 4 + (i % 4)];
+        const tmp = D; D = C; C = B;
+        const x = (A + F + K[i] + W[blk + g]) | 0;
+        B = (B + ((x << s) | (x >>> (32 - s)))) | 0; A = tmp;
+      }
+      a0 = (a0 + A) | 0; b0 = (b0 + B) | 0; c0 = (c0 + C) | 0; d0 = (d0 + D) | 0;
+    }
+    return [a0, b0, c0, d0].map(v => [0,8,16,24].map(sh => ((v >>> sh) & 255).toString(16).padStart(2, '0')).join('')).join('');
+  }
+
+  $('bCopy').onclick = () => navigator.clipboard.writeText(logLines.join('\n')).then(() => log('(registo copiado)'));
+  $('btnConnect').onclick = connect;
+  $('ip').addEventListener('keydown', e => { if (e.key === 'Enter') connect(); });
+  $('ip').value = localStorage.getItem('cc1_ip') || '';
+  log('Abre este ficheiro num computador ou telemóvel ligado à mesma rede Wi-Fi que a impressora.');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+name: Construir app Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Gerar projeto Android
+        run: |
+          flutter create --platforms=android --org com.ccremote --project-name cc_remote .
+          python3 tools/ci_patch_android.py
+          flutter pub get
+
+      - name: Análise do código
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Construir APK
+        run: flutter build apk --release
+
+      - name: Guardar APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk CC-Remote.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CC-Remote-apk
+          path: CC-Remote.apk
+
+      - name: Publicar versão para descarregar no telemóvel
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          name: CC Remote 0.1.${{ github.run_number }}
+          body: |
+            Abre esta página no telemóvel Android, toca em **CC-Remote.apk** para descarregar e depois abre o ficheiro para instalar.
+            (Se o Android avisar sobre "fontes desconhecidas", permite a instalação para o browser.)
+          files: CC-Remote.apk
+          make_latest: true
