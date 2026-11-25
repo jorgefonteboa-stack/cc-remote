@@ -13,9 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -28,6 +28,7 @@ jobs:
       - name: Gerar projeto Android
         run: |
           flutter create --platforms=android --org com.ccremote --project-name cc_remote .
+          rm -rf test   # teste de exemplo gerado pelo flutter create (não se aplica a esta app)
           python3 tools/ci_patch_android.py
           flutter pub get
 

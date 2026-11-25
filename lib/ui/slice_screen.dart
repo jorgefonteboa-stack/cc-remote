@@ -137,10 +137,12 @@ class _SliceScreenState extends State<SliceScreen> {
     });
     try {
       final r = await _slicer.slice(_stl!, _settings, onProgress: (p, s) {
-        if (mounted) setState(() {
-          _progress = p;
-          _stageLabel = s;
-        });
+        if (mounted) {
+          setState(() {
+            _progress = p;
+            _stageLabel = s;
+          });
+        }
       });
       setState(() {
         _result = r;
