@@ -34,6 +34,9 @@ jobs:
           # Plugins antigos usam proguard-android.txt, recusado pelo Android Gradle Plugin atual
           grep -rl "proguard-android.txt" ~/.pub-cache/hosted/pub.dev/*/android/ 2>/dev/null \
             | xargs -r sed -i "s/proguard-android.txt/proguard-android-optimize.txt/g"
+          # Plugins antigos compilam contra SDKs < 36; as dependências atuais exigem 36
+          find ~/.pub-cache/hosted/pub.dev/*/android -maxdepth 1 -name "build.gradle*" \
+            | xargs -r sed -i -E "s/compileSdkVersion[ =]+[0-9]+/compileSdkVersion 36/; s/compileSdk[ ]*=[ ]*[0-9]+/compileSdk = 36/; s/compileSdk[ ]+[0-9]+/compileSdk 36/"
 
       - name: Análise do código
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
