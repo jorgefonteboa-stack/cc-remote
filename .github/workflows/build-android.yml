@@ -1,4 +1,4 @@
-name: Construir app Android
+name: Construir apps (Android e iOS)
 
 on:
   push:
@@ -62,3 +62,41 @@ jobs:
             (Se o Android avisar sobre "fontes desconhecidas", permite a instalação para o browser.)
           files: CC-Remote.apk
           make_latest: true
+
+  ipa:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Gerar projeto iOS
+        run: |
+          flutter create --platforms=ios --org com.ccremote --project-name cc_remote .
+          rm -rf test
+          python3 tools/ci_patch_ios.py
+          flutter pub get
+
+      - name: Construir app iOS (sem assinatura)
+        run: flutter build ios --release --no-codesign
+
+      - name: Empacotar IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qr CC-Remote.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CC-Remote-ipa
+          path: CC-Remote.ipa
+
+      - name: Juntar o IPA à versão
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          files: CC-Remote.ipa
