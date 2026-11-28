@@ -12,6 +12,10 @@ App Flutter (Android + iPhone) ao estilo do Bambu Handy:
 
 - **Vigilância IA**: durante a impressão, um modelo YOLO analisa a câmara no telemóvel a cada 10 s. Se detetar a mesma falha em várias verificações seguidas (esparguete, peça descolada…), **pausa a impressora**, envia uma notificação e mostra a imagem com as opções "Falso alarme, retomar" e "Parar impressão".
 
+- **Cancelar objetos**: com várias peças na mesa, mostra um mapa com cada objeto e permite cancelar só o que está a correr mal. Os outros continuam. A app deteta sozinha se a impressora suporta esta função:
+  - **Klipper/Moonraker** (Creality, Sovol, Voron, CC1 com o firmware COSMOS…): ✅ compatível. No slicer, ativa "Exclude objects" (em Outros).
+  - **Firmware oficial Elegoo (CC1 V1.4.49):** mostra "Não compatível". O módulo existe no código-fonte publicado pela Elegoo, mas não está ativo nem tem comando de rede.
+
 Tudo funciona na rede local, sem cloud. A comunicação usa o protocolo SDCP v3 (WebSocket `ws://IP:3030/websocket`), documentado pelo projeto OpenCentauri.
 
 ## Instalar no Android (sem programar)

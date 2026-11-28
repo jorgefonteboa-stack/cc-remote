@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../ai/print_guard.dart';
 import '../printer/canvas.dart';
+import '../printer/object_exclusion.dart';
 import '../printer/printer_status.dart';
 import 'canvas_panel.dart';
 import 'guard_card.dart';
+import 'objects_card.dart';
 import '../printer/sdcp_client.dart';
 import 'mjpeg_view.dart';
 import 'slice_screen.dart';
@@ -31,6 +33,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
   CanvasState? _canvas;
   bool _canvasLoading = false;
   late final PrintGuard _guard = PrintGuard(_client);
+  ExclusionSupport? _exclusion;
 
   @override
   void initState() {
@@ -50,6 +53,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
       await _client.connect();
       setState(() => _error = null);
       unawaited(_loadCanvas());
+      unawaited(_detectExclusion());
       final url = await _client.enableCamera();
       if (mounted) setState(() => _cameraUrl = url);
     } catch (e) {
@@ -68,6 +72,16 @@ class _PrinterScreenState extends State<PrinterScreen> {
     } finally {
       if (mounted) setState(() => _canvasLoading = false);
     }
+  }
+
+  /// Verifica se esta impressora permite cancelar objetos individuais.
+  Future<void> _detectExclusion() async {
+    if (_exclusion != null) return;
+    // Dá tempo a que os atributos (versão de firmware) cheguem.
+    await Future.delayed(const Duration(seconds: 1));
+    final fw = '${_client.attributes['FirmwareVersion'] ?? widget.printer.firmware}';
+    final r = await ObjectExclusion.detect(widget.printer.ip, firmware: fw);
+    if (mounted) setState(() => _exclusion = r);
   }
 
   void _reconnectLater() {
@@ -197,6 +211,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                 onResume: () => _run(_client.resume, 'A retomar'),
                 onStop: () => _run(_client.stop, 'Impressão parada'),
               ),
+              ObjectsCard(support: _exclusion, printing: busy),
               CanvasPanel(
                 canvas: _canvas,
                 loading: _canvasLoading,
